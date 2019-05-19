@@ -1,0 +1,109 @@
+---
+title: "Crash Data Analysis"
+author: "Ben Herndon-Miller"
+date: "5/19/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Prep
+
+```{r}
+# Load libraries
+library(dplyr)
+library(caret)
+library(glmnet)
+
+# Load in data
+intersections <- read.csv("data/crash_data/intersection_dataset_to_predict.csv", header = TRUE, stringsAsFactors = FALSE)
+
+intersections <- intersections %>%
+  filter(complete.cases(.)) %>%
+  mutate(CrashSeverity_Binary_INJURED_mean = ifelse(CrashSeverity_Binary_INJURED_mean == 0, 0, 1))
+
+intersection_ids <- intersections$IntersectionID
+rownames(intersections) <- intersections$IntersectionID
+intersections <- intersections[,-1]
+```
+
+# Data Splitting
+
+```{r}
+# Split data into training/validation, query, test
+idx <- createDataPartition(intersections$CrashSeverity_Binary_INJURED_mean, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+
+int_train <- intersections[idx,]
+int_test <- intersections[-idx,]
+
+qridx <- createDataPartition(int_train$CrashSeverity_Binary_INJURED_mean, p = .75, 
+                                  list = FALSE, 
+                                  times = 1)
+
+int_query <- int_train[-qridx,]
+int_train <- int_train[qridx,]
+```
+
+# Lasso
+
+```{r}
+# Fit Lasso
+cvfit <- cv.glmnet(as.matrix(int_train[,-100]), int_train[,100], family = "binomial", type.measure = "class")
+
+# Plot coefficients
+coef(cvfit, s = "lambda.min")
+```
+
+```{r}
+# Predict on query set
+y_hat_lasso <- predict(cvfit, newx = as.matrix(int_query[,-92]), s = "lambda.min", type = "class")
+
+lasso_acc <- mean(y_hat_lasso == as.character(int_query$CrashSeverity_Binary_INJURED_mean))
+lasso_acc
+```
+
+# Fit logistic regression model with selected features from Lasso
+
+```{r}
+# Record variables selected by lasso at optimal lambda
+vars <- coef(cvfit, s = "lambda.min")
+var_idx <- vars@i[-1]
+
+# Keep selected variables
+log_data <- int_query[,c(var_idx,100)]
+log_data_test <- int_test[,c(var_idx,100)]
+
+# Fit logistic regression model
+log_fit <- glm(CrashSeverity_Binary_INJURED_mean ~ ., data = log_data, family = "binomial")
+
+# Store results in table
+results <- summary(log_fit)
+results_data <- data.frame(results$coefficients)
+results_data <- results_data[-1,]
+results_data$variable <- rownames(results_data)
+
+write.csv(results_data, "data/logistic_regression_results.csv", row.names = FALSE)
+```
+
+# Predict on Test with Logistic Regression
+```{r}
+# Predict on test
+y_hat_test <- round(predict(log_fit, newdata = log_data_test, type = "response"))
+
+test_acc <- mean(y_hat_test == log_data_test$CrashSeverity_Binary_INJURED_mean)
+```
+
+# Predict which intersections will have injuries
+
+```{r}
+# Predict with the lasso on the full data set
+y_hat_total <- as.data.frame(predict(cvfit, newx = as.matrix(intersections[,-92]), s = "lambda.min", type = "response"))
+
+colnames(y_hat_total)[1] <- "injury_prediction"
+
+write.csv(y_hat_total, "data/logistic_regression_injury_prediction.csv")
+```
