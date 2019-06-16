@@ -1,6 +1,3 @@
-# just do it the slow way
-# do it right
-
 library(tidyverse)
 library(rgdal)
 library(data.table)
@@ -29,10 +26,7 @@ crashes <- c(201401:201412,
     return(crashes)
   })
 
-## figure out column stuff
-crashes %>% 
-  lapply(colnames) %>%
-  unique()
+crashes %>% lapply(colnames) %>% unique() # test for single set of column names
 
 ## merge into one data frame
 crashes <- crashes %>%
@@ -63,14 +57,14 @@ crashes <- crashes %>% select(-Longitude, -Latitude)
 rm(crashes_xy)
 
 # read in units data
-units <- crashes <- c(201401:201412, 
-                      201501:201512, 
-                      201601:201612, 
-                      201701:201712, 
-                      201801:201812) %>% 
+units <- c(201401:201412, 
+           201501:201512, 
+           201601:201612, 
+           201701:201712, 
+           201801:201812) %>% 
   as.list() %>% 
   lapply(function(yyyymm){
-    units_path <- paste0("data/raw/txdot_cris_units_hgac_",yyyymm,".csv") # fix later
+    units_path <- paste0("data/raw/txdot_cris_units_harris_fortbend_montgomery_",yyyymm,".csv") # fix later
     units <- units_path %>% read.crashes()
     units <- units %>% select(Crash.ID, Unit.Description)
     return(units)
@@ -84,11 +78,12 @@ units <- units %>%
 units %>% group_by(Unit.Description) %>% tally() 
 units_crashes_xw <- units %>% 
   group_by(Crash.ID) %>% 
-  summarise(n_cars = sum(Unit.Description == "Motor Vehicle", na.rm = T), 
-            n_peds = sum(Unit.Description == "Pedestrian", na.rm = T), 
-            n_bikes = sum(Unit.Description == "Pedalcyclist", na.rm = T)) %>% 
+  summarise(n_cars = sum(Unit.Description == "1 - MOTOR VEHICLE", na.rm = T), 
+            n_peds = sum(Unit.Description == "4 - PEDESTRIAN", na.rm = T), 
+            n_bikes = sum(Unit.Description == "3 - PEDALCYCLIST", na.rm = T)) %>% 
   ungroup()
 units_crashes_xw %>% summarise(sum(n_cars), sum(n_peds), sum(n_bikes))
+units_crashes_xw %>% filter(Crash.ID %in% crashes$Crash.ID) %>% summarise(sum(n_cars), sum(n_peds), sum(n_bikes))
 # join to crashes dataset
 crashes %>% nrow()
 crashes <- crashes %>% left_join(units_crashes_xw, by = "Crash.ID")
@@ -96,53 +91,15 @@ crashes %>% nrow()
 rm(units, units_crashes_xw)
 
 crashes %>% summarise(sum(is.na(n_cars)), sum(is.na(n_peds)), sum(is.na(n_bikes)))
-# fix if needed -- not needed for 2014 data
 
 # filter out crashes that are either intersection (related) or ped/bike
-##### explore at intersection flag
 crashes %>% group_by(Intersection.Related) %>% tally()
 crashes <- crashes %>% 
-  filter(Intersection.Related %in% c("Intersection", "Intersection Related") | 
+  filter(Intersection.Related %in% c("INTERSECTION", "INTERSECTION RELATED") | 
            n_peds > 0 |
            n_bikes > 0)
 crashes %>% group_by(Intersection.Related) %>% tally()
-crashes %>% summarise(n_peds = sum(n_peds), n_bikes = sum(n_bikes))
-
-crashes %>%
-  group_by(Street.Name) %>% 
-  tally() %>%
-  arrange(desc(n)) %>%
-  head(50) %>% 
-  as.data.frame()
-crashes %>% 
-  group_by(Intersecting.Street.Name) %>% 
-  tally() %>% 
-  arrange(desc(n)) %>%
-  head(50) %>% 
-  as.data.frame()
-crashes %>%
-  group_by(Street.Name) %>% 
-  tally() %>%
-  arrange(desc(n)) %>%
-  filter(str_detect(Street.Name, "UNKNOWN|N/A"))
-crashes %>% 
-  group_by(Intersecting.Street.Name) %>% 
-  tally() %>% 
-  arrange(desc(n)) %>%
-  filter(str_detect(Intersecting.Street.Name, "UNKNOWN|N/A"))
-crashes[c("Street.Name", "Intersecting.Street.Name")] <- crashes[c("Street.Name", "Intersecting.Street.Name")] %>% 
-  lapply(function(v){
-    v[v %in% c("UNKNOWN","N/A")] <- NA
-    return(v)
-  })
-
-unique_street_names <- sort(unique(c(crashes$Street.Name, crashes$Intersecting.Street.Name)))
-crashes[c("Street.Name", "Intersecting.Street.Name")] <- crashes[c("Street.Name", "Intersecting.Street.Name")] %>% 
-  lapply(factor, levels = unique_street_names)
-crashes <- crashes %>% 
-  mutate(Intersection.Name = ifelse(as.integer(Street.Name) < as.integer(Intersecting.Street.Name), 
-                                    paste(Street.Name, Intersecting.Street.Name, sep = " @ "), 
-                                    paste(Intersecting.Street.Name, Street.Name, sep = " @ ")))
+crashes %>% summarise(sum(n_peds), sum(n_bikes))
 
 ## assign time period
 crashes <- crashes %>% 
@@ -152,9 +109,8 @@ crashes <- crashes %>%
 ## replace "No Data" with null values in all columns
 crashes[] <- crashes[] %>% 
   lapply(function(v){
-    v[v == c("No Data","NO DATA")] <- NA
+    v[v %in% c("No Data","NO DATA")] <- NA
     return(v)
   })
 
-
-
+write.csv(crashes, "data/txdot_cris_crashes_harris_fortbend_montgomery_2014_2018.csv", row.names = F)
