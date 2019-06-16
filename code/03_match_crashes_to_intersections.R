@@ -12,7 +12,7 @@ crashes <- "data/txdot_cris_crashes_harris_fortbend_montgomery_2014_2018.csv" %>
 crashes <- crashes %>% 
   select(Crash.ID, crash_x = x, crash_y = y)
 
-intersections <- "data/intersections.csv" %>% 
+intersections <- "data/intersections_coords.csv" %>% 
   read.csv() %>% 
   unfactor.df()
 intersections <- intersections %>% 

@@ -33,6 +33,6 @@ intersections <- intersections %>%
   filter(!road_classes %in% c("ACCESS", "PRIVATE", "PARKING", "ACCESS @ PRIVATE", "ACCESS @ PARKING", "PRIVATE @ PARKING"))
 
 intersections$Intersection.ID <- 1:nrow(intersections)
-write.csv(intersections, "E:/Dropbox (Traffic Engineers)/kelsey/projects/hackathon19/data/intersections.csv" , row.names = F)
+write.csv(intersections, "E:/Dropbox (Traffic Engineers)/kelsey/projects/hackathon19/data/intersections_coords.csv" , row.names = F)
 
 
