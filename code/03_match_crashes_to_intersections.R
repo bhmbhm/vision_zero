@@ -1,12 +1,11 @@
 library(tidyverse)
-library(rgdal)
 library(data.table)
 
-setwd("E:/Dropbox (Traffic Engineers)/kelsey/projects/hackathon19")
+setwd("E:/Users/KelseyWalker/vision_zero")
 
 source("code/functions/unfactor_df.R")
 
-crashes <- "data/txdot_cris_crashes_harris_fortbend_montgomery_2014_2018.csv" %>% 
+crashes <- "data/txdot_cris_crashes_harris_fortbend_montgomery_2014_2019.csv" %>% 
   read.csv() %>%
   unfactor.df()
 crashes <- crashes %>% 
@@ -72,9 +71,5 @@ crashes_ints <- crashes_ints %>%
 sum(crashes_ints$Crash.ID %in% crashes$Crash.ID) == nrow(crashes_ints) & nrow(crashes_ints) == nrow(crashes)
 crashes_ints <- crashes_ints %>% 
   select(Crash.ID, Intersection.ID, Int.Distance.Ft = distance_ft)
-
-ggplot(crashes_ints) + 
-  geom_density(aes(x=Int.Distance.Ft)) + 
-  scale_x_continuous(limits = c(0, 500))
 
 write.csv(crashes_ints, "data/crashes_intersections_crosswalk.csv", row.names = F)

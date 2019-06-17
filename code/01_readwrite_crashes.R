@@ -2,7 +2,7 @@ library(tidyverse)
 library(rgdal)
 library(data.table)
 
-setwd("E:/Dropbox (Traffic Engineers)/kelsey/projects/hackathon19")
+setwd("C:/Users/KelseyWalker/vision_zero")
 source("code/functions/unfactor_df.R")
 
 read.crashes <- function(path){
@@ -16,7 +16,8 @@ crashes <- c(201401:201412,
              201501:201512, 
              201601:201612, 
              201701:201712, 
-             201801:201812) %>% 
+             201801:201812,
+             201901:201906) %>% 
   as.list() %>% 
   lapply(function(yyyymm){
     crashes_path <- paste0("data/raw/txdot_cris_crashes_harris_fortbend_montgomery_",yyyymm,".csv") # fix
@@ -26,13 +27,13 @@ crashes <- c(201401:201412,
     return(crashes)
   })
 
-crashes %>% lapply(colnames) %>% unique() # test for single set of column names
-
+# test for single set of column names
+crashes %>% lapply(colnames) %>% unique() 
 ## merge into one data frame
 crashes <- crashes %>%
   rbindlist() %>% 
   as.data.frame(stringsAsFactors=F)
-## remove crashes without latitude/longitude data from the dataset
+## remove crashes without latitude/longitude
 crashes %>% 
   filter(is.na(as.numeric(Latitude))) %>% 
   group_by(Latitude) %>% 
@@ -46,10 +47,11 @@ crashes <- crashes %>%
 ## transform Latitude & Longtiude into numeric variables
 crashes[c("Latitude", "Longitude")] <- crashes[c("Latitude", "Longitude")] %>% 
   lapply(as.numeric)
+## project (longitude, latitude) into (x, y) -- state plane texas south central projection, units are feet
 crashes_xy <- crashes[c("Longitude", "Latitude")] %>% 
   as.matrix() %>% 
   SpatialPoints(proj4string = CRS("+init=epsg:4326")) %>% # wgs84
-  spTransform(CRSobj = CRS("+init=epsg:2278")) %>% # texas south central
+  spTransform(CRSobj = CRS("+init=epsg:2278")) %>% # texas south central (feet)
   as.data.frame()
 crashes$x <- crashes_xy[,1]
 crashes$y <- crashes_xy[,2]
@@ -61,7 +63,8 @@ units <- c(201401:201412,
            201501:201512, 
            201601:201612, 
            201701:201712, 
-           201801:201812) %>% 
+           201801:201812,
+           201901:201906) %>% 
   as.list() %>% 
   lapply(function(yyyymm){
     units_path <- paste0("data/raw/txdot_cris_units_harris_fortbend_montgomery_",yyyymm,".csv") # fix later
@@ -69,8 +72,9 @@ units <- c(201401:201412,
     units <- units %>% select(Crash.ID, Unit.Description)
     return(units)
   })
-# consolidate list into single data frame
-units %>% lapply(colnames) %>% unique() # test for one set of column names
+# test for one set of column names
+units %>% lapply(colnames) %>% unique() 
+# consolidate into single data frame
 units <- units %>% 
   rbindlist() %>% 
   as.data.frame(stringsAsFactors = F)
@@ -101,7 +105,7 @@ crashes <- crashes %>%
 crashes %>% group_by(Intersection.Related) %>% tally()
 crashes %>% summarise(sum(n_peds), sum(n_bikes))
 
-## assign time period
+## assign time period -- time period 11 (1/2019 - 6/2019) is test set
 crashes <- crashes %>% 
   mutate(period = (year-2014)*2 + ceiling(month/6))
 
@@ -113,4 +117,4 @@ crashes[] <- crashes[] %>%
     return(v)
   })
 
-write.csv(crashes, "data/txdot_cris_crashes_harris_fortbend_montgomery_2014_2018.csv", row.names = F)
+write.csv(crashes, "data/txdot_cris_crashes_harris_fortbend_montgomery_2014_2019.csv", row.names = F)
