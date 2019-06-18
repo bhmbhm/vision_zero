@@ -180,11 +180,34 @@ crash_num = crash_df.loc[:,['Intersection.ID',
             'Crash.ID']].groupby(['Intersection.ID']).count().reset_index()
 crash_num = crash_num.rename(index = str, columns = {'Crash.ID':'crash_num'})
 
+#Per intersection, number of injured and non-injured crashes
+injury_crash_num = crash_df.loc[:,['Intersection.ID',
+                                  'Crash.Severity_Binary_INJURED',
+                                   'Crash.Severity_Binary_NON-INJURED'
+                                  ]].groupby(['Intersection.ID']).sum().reset_index()
+injury_crash_num = injury_crash_num.rename(index = str, 
+                                           columns = {'Crash.Severity_Binary_INJURED':'crash_injured_num',
+                                                     'Crash.Severity_Binary_NON-INJURED':'crash_non-injured_num'})
+
 #Create a dataframe for the aggregated crash data by intersection
+#Probably should have named this variable intersection_df, but oh well
 intersection_df = crash_df.loc[:,['Intersection.ID',
                                  'road_classes',
-                                 'street_names']].drop_duplicates()
+                                 'street_names',
+                                 'n_roads', 
+                                  'n_street_names', 
+                                  'n_transit_routes_200ft',
+                                  'n_transit_routes_400ft', 
+                                  'n_transit_routes_closest',
+                                  'n_transit_stops_200ft', 
+                                  'n_transit_stops_400ft',
+                                  'n_transit_stops_closest', 
+                                  'n_transit_trips_200ft',
+                                  'n_transit_trips_400ft', 
+                                  'n_transit_trips_closest']].drop_duplicates()
+
 intersection_df = pd.merge(intersection_df, crash_num, how = "left", on = "Intersection.ID")
+intersection_df = pd.merge(intersection_df, injury_crash_num, how = "left", on = "Intersection.ID")
 
 #Functions to aggregate the continuous and categorical variable columns
 #Continuous - get min, max, mean (not all are relevant to all variables)
@@ -204,7 +227,19 @@ def categorical_agg(df, agg_col):
     grouped_df = grouped_df.reset_index()
     return grouped_df
 
-base_cols = ['Intersection.ID', 'road_classes', 'street_names', 'crash_num']
+base_cols = ['Intersection.ID', 'road_classes', 'street_names', 'crash_num', 'crash_injured_num', 
+             'crash_non-injured_num'
+            'n_roads', 
+              'n_street_names', 
+              'n_transit_routes_200ft',
+              'n_transit_routes_400ft', 
+              'n_transit_routes_closest',
+              'n_transit_stops_200ft', 
+              'n_transit_stops_400ft',
+              'n_transit_stops_closest', 
+              'n_transit_trips_200ft',
+              'n_transit_trips_400ft', 
+              'n_transit_trips_closest']
 continuous_cols = ['Speed.Limit', 
                     'Roadbed.Width', 
                     'Number.of.Lanes', 
@@ -227,6 +262,7 @@ for col in cat_cols:
 #     print(f"Now doing {col}")
     agged_df = categorical_agg(crash_df, col)
     intersection_df = pd.merge(intersection_df, agged_df, how = "left", on = "Intersection.ID")
+    
     
 #Creating unbiased means
 intersection_df['Speed.Limit_unbiased_mean'] = (intersection_df['Speed.Limit_amin']+intersection_df['Speed.Limit_amax'])/2
