@@ -18,7 +18,7 @@ library(caret)
 library(glmnet)
 
 # Load in data
-intersections <- read.csv("data/crash_data/intersection_dataset_to_predict.csv", header = TRUE, stringsAsFactors = FALSE)
+intersections <- read.csv("/Users/bhm/january_advisors/vision_zero/data/intersection_dataset_to_model.csv", header = TRUE, stringsAsFactors = FALSE)
 
 intersections <- intersections %>%
   filter(complete.cases(.)) %>%
