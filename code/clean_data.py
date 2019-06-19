@@ -6,8 +6,8 @@ import os
 import datetime 
 import pickle
 
-from IPython.display import display
-pd.options.display.max_columns = None
+# from IPython.display import display
+# pd.options.display.max_columns = None
 
 # Get file paths for data
 data_dir = "data/crash_data/"
