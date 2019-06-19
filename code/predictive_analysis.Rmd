@@ -1,0 +1,211 @@
+---
+title: "Crash Data Analysis"
+author: "Ben Herndon-Miller"
+date: "6/18/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# Load libraries
+library(knitr)
+library(dplyr)
+library(caret)
+library(glmnet)
+library(randomForest)
+
+# Set global options
+knitr::opts_chunk$set(echo = TRUE,
+                      cache.extra = rand_seed)
+```
+
+# Data Prep
+
+```{r}
+# Load in data
+intersections <- read.csv("/Users/bhm/january_advisors/vision_zero/data/intersection_dataset_to_model.csv", header = TRUE, stringsAsFactors = FALSE)
+
+# Drop variables and drop intersections with missing data
+intersections <- intersections %>%
+  select(-c(street_names, Number.of.Lanes_unbiased_mean, 
+            Crash.Severity_KILLED_mean, Crash.Severity_NON.INCAPACITATING.INJURY_mean,
+            Crash.Severity_NOT.INJURED_mean, Crash.Severity_POSSIBLE.INJURY_mean,
+            Crash.Severity_SUSPECTED.SERIOUS.INJURY_mean, Crash.Severity_Binary_INJURED_mean,
+            Crash.Severity_Binary_NON.INJURED_mean, crash_non.injured_num)) %>%
+  filter(complete.cases(.))
+
+# Set intersection id to rowname
+intersection_ids <- intersections$Intersection.ID
+rownames(intersections) <- intersections$Intersection.ID
+
+intersections <- intersections %>%
+  select(-Intersection.ID)
+
+# Create "OTHER"" category for road class with low frequency
+road_freq <- table(intersections$road_classes)
+road_other <- names(road_freq[road_freq < 50])
+intersections$road_classes[intersections$road_classes %in% road_other] <- "OTHER"
+
+# Create dummy variables for road classes
+road_class <- as.factor(intersections$road_classes)
+road_dummies <- model.matrix(~road_class)
+road_dummies <- road_dummies[,-1]
+
+# Drop road class factor variable and add dummy variables
+intersections <- intersections %>%
+  select(-c(road_classes))
+
+intersections <- data.frame(intersections, road_dummies)
+
+```
+
+# Data Splitting
+
+```{r}
+# Set seed for reproducibility
+set.seed(123)
+
+# Split data into training/validation, query, test
+idx <- createDataPartition(intersections$crash_injured_num, p = .6, 
+                                  list = FALSE, 
+                                  times = 1)
+
+int_train <- intersections[idx,]
+int_test <- intersections[-idx,]
+
+# Make x and y matrices for ease of use
+x_all <- intersections %>%
+  select(-c(crash_injured_num)) %>%
+  as.matrix(.)
+
+x_train <- int_train %>%
+  select(-c(crash_injured_num)) %>%
+  as.matrix(.)
+
+x_test <- int_test %>%
+  select(-c(crash_injured_num)) %>%
+  as.matrix(.)
+
+y_train <- int_train$crash_injured_num
+y_test <- int_test$crash_injured_num
+```
+
+# Lasso
+
+```{r}
+# Set seed for reproducibility
+set.seed(123)
+
+# Fit Lasso
+cvfit <- cv.glmnet(x_train, y_train, family = "poisson")
+
+# Plot coefficients
+coef(cvfit, s = "lambda.min")
+```
+
+```{r}
+# Set seed for reproducibility
+set.seed(123)
+
+# Predict on query set
+y_lasso_hat <- predict(cvfit, newx = x_test, s = "lambda.min", type = "response")
+
+lasso_acc <- sum((y_test - y_lasso_hat)^2)/length(y_test)
+lasso_acc
+```
+
+## Fit logistic regression model with selected features from Lasso
+
+```{r}
+# Set seed for reproducibility
+set.seed(123)
+
+# Record variables selected by lasso at optimal lambda
+vars <- coef(cvfit, s = "lambda.min")
+var_idx <- vars@i[-1]
+
+# Keep selected variables
+keep_vars <- x_test[,var_idx]
+pois_data <- data.frame(crash_injured_num = y_test, keep_vars)
+
+# Fit poisson regression model
+pois_fit <- glm(crash_injured_num ~ ., data = pois_data, family = "poisson")
+
+# Store results in table
+results <- summary(pois_fit)
+results_data <- data.frame(results$coefficients)
+results_data <- results_data[-1,]
+results_data$variable <- rownames(results_data)
+
+write.csv(results_data, "poisson_regression_results.csv", row.names = FALSE)
+```
+
+# Random Forest
+
+## RF with Caret
+
+```{r}
+# Set seed for reproducibility
+set.seed(123)
+
+# Set up train control for our models
+ctrl <- trainControl(method = "cv",
+                     number = 10)
+
+# rf_fit <- train(crash_injured_num ~ .,
+#             data = int_train,
+#             method = "rf",
+#             trControl = ctrl)
+
+# Save model
+saveRDS(rf_fit, "random_forest.RDS")
+```
+
+## RF with randomForest
+
+```{r}
+# Set seed for reproducibility
+set.seed(123)
+
+rf_fit2 <- randomForest(crash_injured_num ~ .,
+                        data = int_train,
+                        mtry = 54,
+                        ntree = 500,
+                        importance = TRUE)
+
+saveRDS(rf_fit2, "random_forest2.RDS")
+```
+
+## Predict on test set
+
+```{r}
+# Set seed for reproducibility
+set.seed(123)
+
+# Predict on test set
+y_rf_hat <- predict(rf_fit2, int_test)
+
+# Get test accuracy
+rf_acc <- sum((y_test - y_rf_hat)^2)/length(y_test)
+rf_acc
+```
+
+## Get variable importance from random forest
+
+```{r}
+imp_mat <- as.data.frame(importance(rf_fit2))
+imp_mat$variable <- rownames(imp_mat)
+write.csv(imp_mat, "random_forest_results.csv", row.names = FALSE)
+```
+
+
+# Predict which intersections will have injuries
+
+```{r}
+# Predict with the lasso on the full data set
+y_hat_total <- as.data.frame(predict(rf_fit2, intersections))
+
+colnames(y_hat_total)[1] <- "injury_prediction"
+y_hat_total$IntersectionID <- intersection_ids
+
+write.csv(y_hat_total, "rf_overall_predictions.csv")
+```
