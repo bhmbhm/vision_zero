@@ -145,7 +145,13 @@ crash_df = limit_df.loc[:,['Intersection.ID',
                            'n_transit_stops_closest',
                            'n_transit_trips_200ft',
                            'n_transit_trips_400ft',
-                           'n_transit_trips_closest']]
+                           'n_transit_trips_closest', 
+                           'sidewalk_dist_50ft', 
+                           'sidewalk_50ft',
+                           'sidewalk_dist_100ft', 
+                           'sidewalk_100ft',
+                           'sidewalk_dist_200ft', 
+                           'sidewalk_200ft']]
 
 crash_df_2018 = crash_df.loc[crash_df['year'] == 2018]
 crash_df = crash_df.loc[crash_df['year'] < 2018]
@@ -208,7 +214,13 @@ intersection_df = crash_df.loc[:,['Intersection.ID',
                                   'n_transit_stops_closest', 
                                   'n_transit_trips_200ft',
                                   'n_transit_trips_400ft', 
-                                  'n_transit_trips_closest']].drop_duplicates()
+                                  'n_transit_trips_closest', 
+                                  'sidewalk_dist_50ft', 
+                                  'sidewalk_50ft',
+                                  'sidewalk_dist_100ft', 
+                                  'sidewalk_100ft',
+                                  'sidewalk_dist_200ft', 
+                                  'sidewalk_200ft']].drop_duplicates()
 
 intersection_df = pd.merge(intersection_df, crash_num, how = "left", on = "Intersection.ID")
 intersection_df = pd.merge(intersection_df, injury_crash_num, how = "left", on = "Intersection.ID")
@@ -246,7 +258,13 @@ base_cols = ['Intersection.ID','road_classes', 'crash_num', 'crash_injured_num',
               'n_transit_stops_closest', 
               'n_transit_trips_200ft',
               'n_transit_trips_400ft', 
-              'n_transit_trips_closest']
+              'n_transit_trips_closest', 
+             'sidewalk_dist_50ft', 
+             'sidewalk_50ft',
+             'sidewalk_dist_100ft', 
+             'sidewalk_100ft',
+             'sidewalk_dist_200ft', 
+             'sidewalk_200ft']
 continuous_cols = ['Speed.Limit', 
                     'Roadbed.Width', 
                     'Number.of.Lanes', 
