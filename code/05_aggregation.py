@@ -8,13 +8,19 @@ wd = "/Users/bhm/january_advisors/vision_zero/data/"
 int_coords = pd.read_csv(wd+"intersections_coords.csv")
 crash_int_cw = pd.read_csv(wd+"crashes_intersections_crosswalk.csv")
 int_trans = pd.read_csv(wd+"intersections_transit.csv")
-crash_df = pd.read_csv(wd+"txdot_cris_crashes_harris_fortbend_montgomery_2014_2018.csv")
+crash_df = pd.read_csv(wd+"txdot_cris_crashes_harris_fortbend_montgomery_2014_2019.csv")
+int_sw = pd.read_csv(wd+"intersections_sidewalks.csv")
 
 #Creating merged dataframe
 full_df = pd.merge(int_coords,
         int_trans,
         how = "left",
         on = ['Intersection.ID'])
+
+full_df = pd.merge(int_sw, 
+                   full_df, 
+                   how = "left", 
+                   on = ['Intersection.ID'])
 
 full_df = pd.merge(crash_int_cw,
         full_df,
@@ -27,11 +33,9 @@ full_df = pd.merge(crash_df,
         on = ['Crash.ID'])
 
 #List of columns to keep for downstream analysis, as determined by Lauren and Kelsey
-
 keep_cols = ['Intersection.ID',
         'Crash.ID',
-    'County', #filter for Harris, Montgomery, Fort Bend
-    'Intersection.Related', # filter for intersection or intersection related
+    'Int.Distance.Ft', # filter for crashes within 200 feet of intersections
     'Speed.Limit',
     'Crash.Severity',
     'Number.of.Lanes',
@@ -61,28 +65,12 @@ keep_cols = ['Intersection.ID',
     'n_transit_trips_closest', 
     'period',
     'road_classes', 
-    'street_names', 
-    'x_x', 
-    'x_y', 
-    'y_x', 
-    'y_y']
+    'street_names'] # not sure this is needed
 
 limit_df = full_df.loc[:,keep_cols]
-limit_df = limit_df.rename(index = str,
-                          columns = {'x_x':'x_intersection',
-                                    'x_y':'x_crash',
-                                    'y_x':'y_intersection',
-                                    'y_y':'y_crash'})
 
 #Filter the dataframe by county (afterwards, don't need this column)
-limit_df = limit_df.loc[(limit_df['County'].str.contains('FORT BEND')) |
-                       (limit_df['County'].str.contains('HARRIS')) |
-                       (limit_df['County'].str.contains('MONTGOMERY'))]
-
-#Filter the dataframe to only have intersection and intersection related rows (afterwards, don't need this column)
-limit_df = limit_df.loc[((limit_df['Intersection.Related'].str.contains('INTERSECTION')) |
-                       (limit_df['Intersection.Related'].str.contains('INTERSECTION RELATED'))) &
-                       ~(limit_df['Intersection.Related'].str.contains('NON INTERSECTION'))]
+limit_df = limit_df.loc[(limit_df['Int.Distance.Ft'].str.contains('FORT BEND'))]
 
 #Data Cleaning
 #SpeedLimit - turn all negatives into NaN
