@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 
-wd = "/Users/jmocko/Desktop/vision_zero/data/"
+wd = "/Users/bhm/january_advisors/vision_zero/data/"
 
 #Get the data
 int_coords = pd.read_csv(wd+"intersections_coords.csv")
