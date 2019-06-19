@@ -34,7 +34,7 @@ full_df = pd.merge(crash_df,
 
 #List of columns to keep for downstream analysis, as determined by Lauren and Kelsey
 keep_cols = ['Intersection.ID',
-        'Crash.ID',
+        'Crash.ID', # this is needed
     'Int.Distance.Ft', # filter for crashes within 200 feet of intersections
     'Speed.Limit',
     'Crash.Severity',
@@ -63,14 +63,13 @@ keep_cols = ['Intersection.ID',
     'n_transit_trips_200ft',
     'n_transit_trips_400ft', 
     'n_transit_trips_closest', 
-    'period',
-    'road_classes', 
-    'street_names'] # not sure this is needed
+    'year',
+    'road_classes'] 
 
 limit_df = full_df.loc[:,keep_cols]
 
-#Filter the dataframe by county (afterwards, don't need this column)
-limit_df = limit_df.loc[limit_df['Int.Distance.Ft'] < 200]
+#Filter the dataframe for crashes within 200 feet of intersections (afterwards, don't need this column)
+limit_df = limit_df.loc[limit_df['Int.Distance.Ft'] <= 200]
 
 #Data Cleaning
 #SpeedLimit - turn all negatives into NaN
@@ -90,7 +89,7 @@ limit_df.loc[limit_df['Crash.Severity']=='K - KILLED', 'Crash.Severity'] = "KILL
 #Create a binary for CrashSeverity based on injured vs non-injured, and excluding all unknown
 limit_df['Crash.Severity_Binary'] = "INJURED"
 limit_df.loc[(limit_df['Crash.Severity']=='NOT INJURED'), 'Crash.Severity_Binary'] = "NON-INJURED"
-limit_df = limit_df.loc[~(limit_df['Crash.Severity']=="UNKNOWN")]
+limit_df = limit_df.loc[~(limit_df['Crash.Severity']=="UNKNOWN")] 
 
 #RoadbedWidth - all No Data and nan to NaN
 limit_df.loc[limit_df['Roadbed.Width']=='No Data', 'Roadbed.Width'] = np.nan
@@ -120,27 +119,30 @@ limit_df['num_entering_roads'] = limit_df['num_entering_roads'].replace("97", np
 
 #Create a new dataframe that has the categorical variables now all as dummy variables
 crash_df = limit_df.loc[:,['Intersection.ID',
-                                  'Crash.ID',
-                                  'road_classes', 
-                                  'street_names',
-                                  'Speed.Limit',
-                                  'Roadbed.Width', 
-                                  'Number.of.Lanes',
-                                  'Median.Width',
-                                  'n_bikes', 
-                                  'n_cars',
-                                  'n_peds',
-                                  'n_roads', 
-                                  'n_street_names', 
-                                  'n_transit_routes_200ft',
-                                  'n_transit_routes_400ft', 
-                                  'n_transit_routes_closest',
-                                  'n_transit_stops_200ft', 
-                                  'n_transit_stops_400ft',
-                                  'n_transit_stops_closest', 
-                                  'n_transit_trips_200ft',
-                                  'n_transit_trips_400ft', 
-                                  'n_transit_trips_closest']]
+                           'Crash.ID',
+                           'year',
+                           'road_classes',
+                           'Speed.Limit',
+                           'Roadbed.Width',
+                           'Number.of.Lanes',
+                           'Median.Width',
+                           'n_bikes', 
+                           'n_cars',
+                           'n_peds',
+                           'n_roads', 
+                           'n_street_names',
+                           'n_transit_routes_200ft',
+                           'n_transit_routes_400ft',
+                           'n_transit_routes_closest',
+                           'n_transit_stops_200ft',
+                           'n_transit_stops_400ft',
+                           'n_transit_stops_closest',
+                           'n_transit_trips_200ft',
+                           'n_transit_trips_400ft',
+                           'n_transit_trips_closest']]
+
+crash_df_2018 = crash_df.loc[crash_df['year'] == 2018]
+crash_df = crash_df.loc[crash_df['year'] < 2018]
 
 def create_dummies(df, col):
     dummies = pd.get_dummies(df[col])
@@ -177,8 +179,16 @@ injury_crash_num = injury_crash_num.rename(index = str,
                                            columns = {'Crash.Severity_Binary_INJURED':'crash_injured_num',
                                                      'Crash.Severity_Binary_NON-INJURED':'crash_non-injured_num'})
 
+
+injury_crash_num_2018 = crash_df_2018.loc[:,['Intersection.ID',
+                                             'Crash.Severity_Binary_INJURED',
+                                             'Crash.Severity_Binary_NON-INJURED'
+                                            ]].groupby(['Intersection.ID']).sum().reset_index()
+injury_crash_num_2018 = injury_crash_num_2018.rename(index = str, 
+                                                     columns = {'Crash.Severity_Binary_INJURED':'crash_injured_num_18',
+                                                                'Crash.Severity_Binary_NON-INJURED':'crash_non-injured_num_18'})
+
 #Create a dataframe for the aggregated crash data by intersection
-#Probably should have named this variable intersection_df, but oh well
 intersection_df = crash_df.loc[:,['Intersection.ID',
                                  'road_classes',
                                  'street_names',
@@ -196,6 +206,8 @@ intersection_df = crash_df.loc[:,['Intersection.ID',
 
 intersection_df = pd.merge(intersection_df, crash_num, how = "left", on = "Intersection.ID")
 intersection_df = pd.merge(intersection_df, injury_crash_num, how = "left", on = "Intersection.ID")
+intersection_df = pd.merge(intersection_df, injury_crash_num_2018, how = "left", on = "Intersection.ID")
+# may need to fix nulls
 
 #Functions to aggregate the continuous and categorical variable columns
 #Continuous - get min, max, mean (not all are relevant to all variables)
@@ -215,9 +227,10 @@ def categorical_agg(df, agg_col):
     grouped_df = grouped_df.reset_index()
     return grouped_df
 
-base_cols = ['Intersection.ID', 'road_classes', 'street_names', 'crash_num', 'crash_injured_num', 
-             'crash_non-injured_num'
-            'n_roads', 
+base_cols = ['Intersection.ID','road_classes', 'crash_num', 'crash_injured_num', 
+             'crash_non-injured_num', 'crash_injured_num_18', 
+             'crash_non-injured_num_18',
+             'n_roads', 
               'n_street_names', 
               'n_transit_routes_200ft',
               'n_transit_routes_400ft', 
@@ -250,7 +263,6 @@ for col in cat_cols:
 #     print(f"Now doing {col}")
     agged_df = categorical_agg(crash_df, col)
     intersection_df = pd.merge(intersection_df, agged_df, how = "left", on = "Intersection.ID")
-    
     
 #Creating unbiased means
 intersection_df['Speed.Limit_unbiased_mean'] = (intersection_df['Speed.Limit_amin']+intersection_df['Speed.Limit_amax'])/2
