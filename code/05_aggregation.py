@@ -70,7 +70,7 @@ keep_cols = ['Intersection.ID',
 limit_df = full_df.loc[:,keep_cols]
 
 #Filter the dataframe by county (afterwards, don't need this column)
-limit_df = limit_df.loc[(limit_df['Int.Distance.Ft'].str.contains('FORT BEND'))]
+limit_df = limit_df.loc[limit_df['Int.Distance.Ft'] < 200]
 
 #Data Cleaning
 #SpeedLimit - turn all negatives into NaN
