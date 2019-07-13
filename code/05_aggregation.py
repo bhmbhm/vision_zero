@@ -153,8 +153,12 @@ crash_df = limit_df.loc[:,['Intersection.ID',
                            'sidewalk_dist_200ft', 
                            'sidewalk_200ft']]
 
+
+crash_df_2019 = crash_df.loc[crash_df['year'] == 2019]
+crash_df_test = crash_df.loc[crash_df['year'] < 2019]
 crash_df_2018 = crash_df.loc[crash_df['year'] == 2018]
 crash_df = crash_df.loc[crash_df['year'] < 2018]
+
 
 def create_dummies(df, col):
     dummies = pd.get_dummies(df[col])
@@ -173,16 +177,60 @@ cols_for_dummies = ['Crash.Severity',
                     'Crash.Severity_Binary']
 
 for col in cols_for_dummies:
+    crash_df_test = pd.concat([crash_df_test,
+                               create_dummies(limit_df, col)],
+                                axis = 1)
+
+for col in cols_for_dummies:
+    crash_df_2019 = pd.concat([crash_df_2019,
+                               create_dummies(limit_df, col)],
+                                axis = 1)
+
+for col in cols_for_dummies:
     crash_df = pd.concat([crash_df,
+                               create_dummies(limit_df, col)],
+                                axis = 1)
+
+for col in cols_for_dummies:
+    crash_df_2018 = pd.concat([crash_df_2018,
                                create_dummies(limit_df, col)],
                                 axis = 1)
     
 #Create a column for the number of crashes per intersection
+crash_num_test = crash_df_test.loc[:,['Intersection.ID',
+            'Crash.ID']].groupby(['Intersection.ID']).count().reset_index()
+crash_num_test = crash_num_test.rename(index = str, columns = {'Crash.ID':'crash_num'})
+
+crash_num_19 = crash_df_2019.loc[:,['Intersection.ID',
+            'Crash.ID']].groupby(['Intersection.ID']).count().reset_index()
+crash_num_19 = crash_num_19.rename(index = str, columns = {'Crash.ID':'crash_num18'})
+
 crash_num = crash_df.loc[:,['Intersection.ID',
             'Crash.ID']].groupby(['Intersection.ID']).count().reset_index()
 crash_num = crash_num.rename(index = str, columns = {'Crash.ID':'crash_num'})
 
+crash_num_18 = crash_df_2018.loc[:,['Intersection.ID',
+            'Crash.ID']].groupby(['Intersection.ID']).count().reset_index()
+crash_num_18 = crash_num_18.rename(index = str, columns = {'Crash.ID':'crash_num18'})
+
 #Per intersection, number of injured and non-injured crashes
+injury_crash_num_test = crash_df_test.loc[:,['Intersection.ID',
+                                  'Crash.Severity_Binary_INJURED',
+                                   'Crash.Severity_Binary_NON-INJURED'
+                                  ]].groupby(['Intersection.ID']).sum().reset_index()
+injury_crash_num_test = injury_crash_num_test.rename(index = str, 
+                                           columns = {'Crash.Severity_Binary_INJURED':'crash_injured_num',
+                                                     'Crash.Severity_Binary_NON-INJURED':'crash_non-injured_num'})
+
+
+injury_crash_num_2019 = crash_df_2019.loc[:,['Intersection.ID',
+                                             'Crash.Severity_Binary_INJURED',
+                                             'Crash.Severity_Binary_NON-INJURED'
+                                            ]].groupby(['Intersection.ID']).sum().reset_index()
+injury_crash_num_2019 = injury_crash_num_2019.rename(index = str, 
+                                                     columns = {'Crash.Severity_Binary_INJURED':'crash_injured_num_18',
+                                                                'Crash.Severity_Binary_NON-INJURED':'crash_non-injured_num_18'})
+
 injury_crash_num = crash_df.loc[:,['Intersection.ID',
                                   'Crash.Severity_Binary_INJURED',
                                    'Crash.Severity_Binary_NON-INJURED'
@@ -201,7 +249,7 @@ injury_crash_num_2018 = injury_crash_num_2018.rename(index = str,
                                                                 'Crash.Severity_Binary_NON-INJURED':'crash_non-injured_num_18'})
 
 #Create a dataframe for the aggregated crash data by intersection
-intersection_df = crash_df.loc[:,['Intersection.ID',
+intersection_df_test = crash_df_test.loc[:,['Intersection.ID',
                                  'road_classes',
                                  'street_names',
                                  'n_roads', 
@@ -222,9 +270,34 @@ intersection_df = crash_df.loc[:,['Intersection.ID',
                                   'sidewalk_dist_200ft', 
                                   'sidewalk_200ft']].drop_duplicates()
 
+intersection_df = crash_df.loc[:,['Intersection.ID',
+                                 'road_classes',
+                                 'street_names',
+                                 'n_roads', 
+                                  'n_street_names', 
+                                  'n_transit_routes_200ft',
+                                  'n_transit_routes_400ft', 
+                                  'n_transit_routes_closest',
+                                  'n_transit_stops_200ft', 
+                                  'n_transit_stops_400ft',
+                                  'n_transit_stops_closest', 
+                                  'n_transit_trips_200ft',
+                                  'n_transit_trips_400ft', 
+                                  'n_transit_trips_closest', 
+                                  'sidewalk_dist_50ft', 
+                                  'sidewalk_50ft',
+                                  'sidewalk_dist_100ft', 
+                                  'sidewalk_100ft',
+                                  'sidewalk_dist_200ft', 
+                                  'sidewalk_200ft']].drop_duplicates()                                  
+
 intersection_df = pd.merge(intersection_df, crash_num, how = "left", on = "Intersection.ID")
 intersection_df = pd.merge(intersection_df, injury_crash_num, how = "left", on = "Intersection.ID")
 intersection_df = pd.merge(intersection_df, injury_crash_num_2018, how = "left", on = "Intersection.ID")
+
+intersection_df_test = pd.merge(intersection_df_test, crash_num_test, how = "left", on = "Intersection.ID")
+intersection_df_test = pd.merge(intersection_df_test, injury_crash_num_test, how = "left", on = "Intersection.ID")
+intersection_df_test = pd.merge(intersection_df_test, injury_crash_num_2019, how = "left", on = "Intersection.ID")
 # may need to fix nulls
 
 #Functions to aggregate the continuous and categorical variable columns
@@ -273,6 +346,11 @@ continuous_cols = ['Speed.Limit',
 #Run through the continuous variables and run the continuous aggregator
 for col in continuous_cols:
 #     print(f"Now doing {col}")
+    agged_df_test = continuous_agg(crash_df_test, col)
+    intersection_df_test = pd.merge(intersection_df_test, agged_df_test, how = "left", on = "Intersection.ID")
+
+for col in continuous_cols:
+#     print(f"Now doing {col}")
     agged_df = continuous_agg(crash_df, col)
     intersection_df = pd.merge(intersection_df, agged_df, how = "left", on = "Intersection.ID")
 
@@ -282,24 +360,49 @@ cat_cols = [col for col in cat_cols if col != 'Crash.ID']
 cat_cols = [col for col in cat_cols if col not in base_cols]
 cat_cols = [col for col in cat_cols if col not in continuous_cols]
 
-#Run through the categorical variables and get the means    
+#Run through the categorical variables and get the means
+for col in cat_cols:
+#     print(f"Now doing {col}")
+    agged_df_test = categorical_agg(crash_df_test, col)
+    intersection_df_test = pd.merge(intersection_df_test, agged_df_test, how = "left", on = "Intersection.ID")
+
 for col in cat_cols:
 #     print(f"Now doing {col}")
     agged_df = categorical_agg(crash_df, col)
     intersection_df = pd.merge(intersection_df, agged_df, how = "left", on = "Intersection.ID")
     
 #Creating unbiased means
+intersection_df_test['Speed.Limit_unbiased_mean'] = (intersection_df_test['Speed.Limit_amin']+intersection_df_test['Speed.Limit_amax'])/2
+intersection_df_test['Number.of.Lanes_unbiased_mean'] = (intersection_df_test['Number.of.Lanes_amin']+intersection_df_test['Number.of.Lanes_amax'])/2
+
 intersection_df['Speed.Limit_unbiased_mean'] = (intersection_df['Speed.Limit_amin']+intersection_df['Speed.Limit_amax'])/2
 intersection_df['Number.of.Lanes_unbiased_mean'] = (intersection_df['Number.of.Lanes_amin']+intersection_df['Number.of.Lanes_amax'])/2
 
 #Renumbering the categorical variables to 0 or 1, with a threshold of 0.10
+categorical_cols = list(intersection_df_test.columns)[30:-4]
+for col in categorical_cols:
+    intersection_df_test.loc[intersection_df_test[col]>0.10, col] = 1
+    intersection_df_test.loc[intersection_df_test[col]<=0.10, col] = 0
+
 categorical_cols = list(intersection_df.columns)[30:-4]
 for col in categorical_cols:
     intersection_df.loc[intersection_df[col]>0.10, col] = 1
     intersection_df.loc[intersection_df[col]<=0.10, col] = 0
 
 #Save the new intersection crash aggregated dataset for modeling
+intersection_df_test.to_csv(wd+'full_aggregated_intersection_dataset_test.csv', index = False)
 intersection_df.to_csv(wd+'full_aggregated_intersection_dataset.csv', index = False)
+
+intersection_df_to_model_test = intersection_df_test.drop(['Roadbed.Width_amin',
+                                             'Roadbed.Width_amax',
+                                             'Roadbed.Width_mean',
+                                             'Number.of.Lanes_amin',
+                                             'Number.of.Lanes_amax',
+                                             'Number.of.Lanes_mean',
+                                             'Median.Width_amin',
+                                             'Median.Width_amax',
+                                             'Median.Width_mean']
+                                             , axis = 1)
 
 intersection_df_to_model = intersection_df.drop(['Roadbed.Width_amin',
                                              'Roadbed.Width_amax',
@@ -313,4 +416,5 @@ intersection_df_to_model = intersection_df.drop(['Roadbed.Width_amin',
                                              , axis = 1)
 
 #Save the new intersection crash aggregated for modeling
+intersection_df_to_model_test.to_csv(wd+'intersection_dataset_to_model_test.csv', index = False)
 intersection_df_to_model.to_csv(wd+'intersection_dataset_to_model.csv', index = False)
