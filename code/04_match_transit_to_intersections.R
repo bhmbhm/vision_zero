@@ -2,7 +2,7 @@ library(tidyverse)
 library(rgdal)
 library(data.table)
 
-setwd("C:/Users/KelseyWalker/vision_zero")
+#setwd("C:/Users/KelseyWalker/vision_zero")
 
 source("code/functions/unfactor_df.R")
 source("code/functions/read_gtfs.R")
