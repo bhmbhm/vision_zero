@@ -2,7 +2,7 @@ library(tidyverse)
 library(rgdal)
 library(data.table)
 
-setwd("C:/Users/KelseyWalker/vision_zero")
+#setwd("C:/Users/KelseyWalker/vision_zero")
 source("code/functions/unfactor_df.R")
 
 read.crashes <- function(path){
@@ -17,7 +17,7 @@ crashes <- c(201401:201412,
              201601:201612, 
              201701:201712, 
              201801:201812,
-             201901:201906) %>% 
+             201901:201904) %>% 
   as.list() %>% 
   lapply(function(yyyymm){
     crashes_path <- paste0("data/raw/txdot_cris_crashes_harris_fortbend_montgomery_",yyyymm,".csv") # fix
@@ -64,7 +64,7 @@ units <- c(201401:201412,
            201601:201612, 
            201701:201712, 
            201801:201812,
-           201901:201906) %>% 
+           201901:201904) %>% 
   as.list() %>% 
   lapply(function(yyyymm){
     units_path <- paste0("data/raw/txdot_cris_units_harris_fortbend_montgomery_",yyyymm,".csv") # fix later
